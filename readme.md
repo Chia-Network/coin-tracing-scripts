@@ -1,13 +1,20 @@
 # Coin Tracing Scripts
 
-You need a synced full node available on the same machine that you are running these scripts from
+Scripts for finding the direct and indirect parents/children of coins by inspecting `ASSERT_COIN_ANNOUNCEMENT` and 
+`CREATE_COIN_ANNOUNCEMENT` conditions.
+
+You need a synced full node available on the same machine that you are running these scripts.
+
+These scripts take advantage of the python implementations of the condition parsing code, which is not hardened in the 
+same way as the rust version. It is possible that a malicious spend could cause excessive memory usage, potentially 
+leading the host to run out of memory.
 
 ## Install
 
 ```shell
 python3 -m venv venv
 . ./venv/bin/activate
-pip install chia-blockchain==1.6.2
+pip install chia-blockchain
 ```
 
 ## Use
