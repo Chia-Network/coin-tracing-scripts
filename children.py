@@ -60,15 +60,20 @@ async def get_outputs():
         output_coins.extend(coins)
     else:
         if ConditionOpcode.CREATE_COIN_ANNOUNCEMENT in conditions:
-            assert ConditionOpcode.CREATE_COIN in conditions
+            if ConditionOpcode.CREATE_COIN not in conditions:
+                print("Could not find CREATE_COIN in conditions. Try children-puzzle.py instead to see if coin was spend to a specific puzzle")
+                client.close()
+                return
 
             for create_coin_announcement in conditions.get(ConditionOpcode.CREATE_COIN_ANNOUNCEMENT, []):
                 assert len(create_coin_announcement.vars) == 1
+                print(f"Create coin announcement message is: {create_coin_announcement.vars[0].hex()}")
+                print(f"Coin ID is:                          {coin_record.coin.parent_coin_info.hex()}")
                 assertValue = hashlib.sha256(
                     coin_record.coin.parent_coin_info +
                     create_coin_announcement.vars[0]
                 ).digest()
-                print(f"sha256(coinID+CREATE_COIN_ANNOUNCEMENT) is:   0x{assertValue.hex()}")
+                print(f"sha256(coinID+CREATE_COIN_ANNOUNCEMENT) is:          0x{assertValue.hex()}")
                 print(f"locating created coins with ASSERT_COIN_ANNOUNCEMENT 0x{assertValue.hex()}")
                 # At this point, we could finish down this branch, to find any other coins spent in this same TX
                 # which could potentially reveal "sibling" coins
