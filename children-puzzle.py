@@ -17,14 +17,11 @@ from chia.util.default_root import DEFAULT_ROOT_PATH
 from chia.util.ints import uint32, uint64
 
 
-# children.py <spent_coin_id>
+# children-puzzle.py <spent_coin_id>
 #
 # For the spend actually creating the coin, come up with the following value:
-# sha256(coinID+<the value from CREATE_COIN_ANNOUNCEMENT/60)
-# This value will be present as a 61/ASSERT_COIN_ANNOUNCEMENT on every other coin that is an input to the coin
-#
-# This assumes the transaction was created with our standard wallet, does not apply to custom wallets which may do
-# things in a less secure manner
+# sha256(puzzlehash+<the value from CREATE_PUZZLE_ANNOUNCEMENT/62)
+# This value will be present as a 63/ASSERT_COIN_ANNOUNCEMENT on every other coin that is an input to the coin
 
 async def get_outputs():
     coin_hex = sys.argv[1]
@@ -54,40 +51,37 @@ async def get_outputs():
 
     output_coins: List[Coin] = []
 
-    # If we don't have 60 or 61, but we DO have CREATE_COIN, we will just report the created coins and call it a day
-    if ConditionOpcode.CREATE_COIN in conditions and ConditionOpcode.CREATE_COIN_ANNOUNCEMENT not in conditions and ConditionOpcode.ASSERT_COIN_ANNOUNCEMENT not in conditions:
-        coins = coins_from_create_coin_condition(conditions, coin_bytes)
-        output_coins.extend(coins)
+    if ConditionOpcode.CREATE_COIN in conditions and ConditionOpcode.CREATE_PUZZLE_ANNOUNCEMENT not in conditions and ConditionOpcode.ASSERT_PUZZLE_ANNOUNCEMENT not in conditions:
+        print("Could not find CREATE_PUZZLE_ANNOUNCEMENT or ASSERT_PUZZLE_ANNOUNCEMENT. Try using children.py instead.")
+        # coins = coins_from_create_coin_condition(conditions, coin_bytes)
+        # output_coins.extend(coins)
     else:
-        if ConditionOpcode.CREATE_COIN_ANNOUNCEMENT in conditions:
-            if ConditionOpcode.CREATE_COIN not in conditions:
-                print("Could not find CREATE_COIN in conditions. Try children-puzzle.py instead to see if coin was spend to a specific puzzle")
-                client.close()
-                return
+        if ConditionOpcode.CREATE_PUZZLE_ANNOUNCEMENT in conditions:
+            assert ConditionOpcode.CREATE_COIN in conditions
 
-            for create_coin_announcement in conditions.get(ConditionOpcode.CREATE_COIN_ANNOUNCEMENT, []):
-                assert len(create_coin_announcement.vars) == 1
-                print(f"Create coin announcement message is: {create_coin_announcement.vars[0].hex()}")
-                print(f"Coin ID is:                          {coin_record.coin.parent_coin_info.hex()}")
+            for create_puzzle_announcement in conditions.get(ConditionOpcode.CREATE_PUZZLE_ANNOUNCEMENT, []):
+                assert len(create_puzzle_announcement.vars) == 1
+                print(f"Create puzzle announcement message is {create_puzzle_announcement.vars[0].hex()}")
+                print(f"Coin puzzle hash is                   {coin_record.coin.puzzle_hash.hex()}")
                 assertValue = hashlib.sha256(
-                    coin_record.coin.parent_coin_info +
-                    create_coin_announcement.vars[0]
+                    coin_record.coin.puzzle_hash +
+                    create_puzzle_announcement.vars[0]
                 ).digest()
-                print(f"sha256(coinID+CREATE_COIN_ANNOUNCEMENT) is:          0x{assertValue.hex()}")
-                print(f"locating created coins with ASSERT_COIN_ANNOUNCEMENT 0x{assertValue.hex()}")
+                print(f"sha256(coinID+CREATE_PUZZLE_ANNOUNCEMENT) is:          0x{assertValue.hex()}")
+                print(f"locating created coins with ASSERT_PUZZLE_ANNOUNCEMENT 0x{assertValue.hex()}")
                 # At this point, we could finish down this branch, to find any other coins spent in this same TX
                 # which could potentially reveal "sibling" coins
 
             coins = coins_from_create_coin_condition(conditions, coin_bytes)
             output_coins.extend(coins)
-        elif ConditionOpcode.ASSERT_COIN_ANNOUNCEMENT in conditions:
+        elif ConditionOpcode.ASSERT_PUZZLE_ANNOUNCEMENT in conditions:
             assert ConditionOpcode.CREATE_COIN not in conditions
 
             # Keep track of all the asserts we're interested in here
             asserts: List[bytes] = []
-            for assert_coin_announcement in conditions.get(ConditionOpcode.ASSERT_COIN_ANNOUNCEMENT, []):
-                assert len(assert_coin_announcement.vars) == 1
-                asserts.append(assert_coin_announcement.vars[0])
+            for assert_puzzle_announcement in conditions.get(ConditionOpcode.ASSERT_PUZZLE_ANNOUNCEMENT, []):
+                assert len(assert_puzzle_announcement.vars) == 1
+                asserts.append(assert_puzzle_announcement.vars[0])
 
             # Get all additions and removals for the block to find things actually creating coins
             block = await client.get_block_record_by_height(coin_record.spent_block_index)
@@ -96,12 +90,12 @@ async def get_outputs():
             for removal in removals:
                 conditions = await get_conditions_for_coin(client, removal)
                 assert conditions is not None
-                if ConditionOpcode.CREATE_COIN_ANNOUNCEMENT in conditions:
-                    for create_coin_announcement in conditions.get(ConditionOpcode.CREATE_COIN_ANNOUNCEMENT, []):
-                        assert len(create_coin_announcement.vars) == 1
+                if ConditionOpcode.CREATE_PUZZLE_ANNOUNCEMENT in conditions:
+                    for create_puzzle_announcement in conditions.get(ConditionOpcode.CREATE_PUZZLE_ANNOUNCEMENT, []):
+                        assert len(create_puzzle_announcement.vars) == 1
                         assertValue = hashlib.sha256(
-                            removal.coin.name() +
-                            create_coin_announcement.vars[0]
+                            removal.coin.puzzle_hash +
+                            create_puzzle_announcement.vars[0]
                         ).digest()
 
                         # If this is an assert we care about, based on the COIN_SPENT_ANNOUNCEMENTS
