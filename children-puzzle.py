@@ -52,7 +52,7 @@ async def get_outputs():
     output_coins: List[Coin] = []
 
     if ConditionOpcode.CREATE_COIN in conditions and ConditionOpcode.CREATE_PUZZLE_ANNOUNCEMENT not in conditions and ConditionOpcode.ASSERT_PUZZLE_ANNOUNCEMENT not in conditions:
-        print("Could not find CREATE_PUZZLE_ANNOUNCEMENT or ASSERT_PUZZLE_ANNOUNCEMENT")
+        print("Could not find CREATE_PUZZLE_ANNOUNCEMENT or ASSERT_PUZZLE_ANNOUNCEMENT. Try using children.py instead.")
         # coins = coins_from_create_coin_condition(conditions, coin_bytes)
         # output_coins.extend(coins)
     else:
