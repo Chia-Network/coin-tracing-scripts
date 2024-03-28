@@ -94,7 +94,7 @@ async def get_conditions_for_coin(client: FullNodeRpcClient, coin: CoinRecord):
 
     # For the listed parent coin, we need to calculate sha256(coinID+<CREATE_COIN_ANNOUNCEMENT>)
     # The value will match any other removal's ASSERT_COIN_ANNOUNCEMENT
-    _, conditions, _ = conditions_dict_for_solution(
+    conditions = conditions_dict_for_solution(
         puzz_solution.puzzle_reveal,
         puzz_solution.solution,
         DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVM)
